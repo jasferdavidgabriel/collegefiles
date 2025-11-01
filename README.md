@@ -17,7 +17,7 @@ Includes:
 - SVM Classification
 - Text Mining  
 
-📄 *Folder:* `[Data Mining](./datamining)`
+📄 *Folder:* [Data Mining](./datamining)
 
 ---
 
