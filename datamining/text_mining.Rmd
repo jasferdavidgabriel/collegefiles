@@ -1,0 +1,193 @@
+---
+title: "Text Mining on Dr.Martin Luther King's 'I Have a Dream' Speech"
+author: "Jasfer David Gabriel"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+------------------------------------------------------------------------
+
+## Introduction
+
+-   This report performs text mining on Dr. Martin Luther King’s "I Have a Dream" speech.
+-   The goal is to:
+    -   clean the text
+    -   Analyze word frequencies
+    -   Generate visualizations such as a word cloud and bar plots to provide meaningful interpretations and recommendations based on the results.
+
+------------------------------------------------------------------------
+
+#### 1. Loading Libraries
+
+```{r warning=FALSE, message=FALSE}
+#Loading necessary Libraries
+library(tm)
+library(SnowballC)
+library(wordcloud)
+library(RColorBrewer)
+```
+
+-   These libraries provide tools for text processing, stemming and visualization.
+
+------------------------------------------------------------------------
+
+#### 2. Load and Inspect Data
+
+```{r}
+filePath <- "http://www.sthda.com/sthda/RDoc/example-files/martin-luther-king-i-have-a-dream-speech.txt"
+text <- readLines(filePath) # Loads the text line by line
+docs <- Corpus(VectorSource(text))  # converts text into a corpus
+inspect(docs)
+
+
+```
+
+------------------------------------------------------------------------
+
+#### 3. Text Cleaning
+
+```{r warning=FALSE}
+toSpace <- content_transformer(function(x, pattern) gsub(pattern, " ", x))
+```
+
+-   Defines a custom function `toSpace` that replaces any specified pattern with a space `" "`.
+
+```{r warning=FALSE}
+docs <- tm_map(docs, toSpace, "/")
+docs <- tm_map(docs, toSpace, "@")
+docs <- tm_map(docs, toSpace, "\\|")
+```
+
+-   Using `toSpace` replace pattern `(/, @, |)` with space.
+
+```{R warning=FALSE}
+docs <- tm_map(docs, content_transformer(tolower)) # converts all text to lower case
+docs <- tm_map(docs, removeNumbers) # removes all numbers
+docs <- tm_map(docs, removeWords, stopwords("english")) # remove common english words
+
+# docs <- tm_map(docs, removeWords, c("blabla1", "blabla2")) # removes custom words
+
+docs <- tm_map(docs, removePunctuation) # removes punctuations
+docs <- tm_map(docs, stripWhitespace) # removes extra white spaces
+docs <- tm_map(docs, stemDocument) # performs stemming
+```
+
+------------------------------------------------------------------------
+
+#### 4.Create Document-Term Matrix
+
+DocumentTermMatrix is a table that shows how often each word appears in each document.
+
+-   We will create a matrix using the DocumentTermMatrix method by passing the corpus and then convert the object into matrix.
+
+-   `sparsity` refers to the threshold of relative document frequency for a word, above which the word will be removed.
+
+```{r}
+dtm <- TermDocumentMatrix(docs)
+dtm
+```
+
+------------------------------------------------------------------------
+
+#### 5. Analysis of Word Frequencies
+
+```{R}
+m <- as.matrix(dtm)
+v <- sort(rowSums(m), decreasing = TRUE)
+d <- data.frame(word = names(v), freq = v, row.names = NULL)
+```
+
+The top 10 frequent words are,
+
+```{R}
+head(d,10)
+```
+
+```{r}
+bp <- barplot(d[1:10, ]$freq,
+              las = 2,
+              names.arg = d[1:10, ]$word,
+              col = "darkblue",
+              main = "Top 10 Frequent Words",
+              ylab = "Word Frequencies")
+
+# Add text labels above the bars
+text(x = bp,
+     y = d[1:10, ]$freq,
+     label = d[1:10, ]$freq,
+     pos = 1,        # position of the lable in the bar
+     cex = 0.8,      # font size
+     col = "white")
+```
+
+-   The bar plot visually reinforces that these words are the rhetorical anchors of the speech.
+
+Frequent Words
+
+```{r}
+#Returns all words that appear at least 7 times in your Document-Term Matrix (dtm).
+findFreqTerms(dtm, lowfreq = 7)
+```
+
+-   words like “dream”, “freedom”, “day”, “let” and “ring” were confirmed to be highly frequent.
+
+Frequent Co-occurence of Words
+
+```{r}
+#Returns words that frequently co-occur with the word "dream"
+findAssocs(dtm, terms = "dream", corlimit = 0.5)
+```
+
+-   “dream” is strongly associated with:
+    -   american, difficult, deeply, face, still, tomorrow, today (correlation ≥ 0.67–0.74).
+    -   These associations show that the word “dream” is emotionally and thematically linked to struggle, hope, identity and the future.
+
+------------------------------------------------------------------------
+
+#### 6. Word Cloud Visualization
+
+word cloud is a visual representation of text data where the size of each word indicates its frequency or importance in the source text.
+
+```{r}
+set.seed(1234)
+wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+          max.words = 200, random.order = FALSE, rot.per = 0.35,
+          colors = brewer.pal(8, "Dark2"))
+```
+
+The word cloud provides an immediate visual summary of the most prominent words.
+
+Key observations:
+
+-   “will”, “freedom”, “dream”, “day”, “ring” dominate visually, underscoring their rhetorical significance.
+
+-    The stemming applied (e.g., “abl”, “togeth”,"everi") groups related words, though it may affect interpretability.
+
+-   Words like “mountain”, “children” and “justice” also appear prominently, reflecting both metaphor and message.
+
+------------------------------------------------------------------------
+
+## Takeaway
+
+-   The most frequent word is "will", highlighting its thematic importance throughout the speech. Indicating determination and future-oriented action.
+-   Other prominent words such as "freedom", "dream", "together" reflect the core values of equality, unity and civil rights.
+
+------------------------------------------------------------------------
+
+## Recommendations
+
+-   For Further Analysis:
+    -   Add sentiment analysis to explore emotional tone across the speech.
+    -   Use n-grams (4-grams/trigrams) to capture impactful phrases like “I have a dream” or “let freedom ring”.
+    -   Apply the same text mining techniques to other famous speeches to compare themes, tone and linguistic patterns in leadership communication.
+
+------------------------------------------------------------------------
+
+## Conclusion
+
+This analysis of Dr. Martin Luther King's "I Have a Dream" speech through text mining provides both visual and quantitative insights into its powerful messaging.
+The repeated themes of will, dream, justice and unity emerge clearly through frequency analysis and visualization.
+
+------------------------------------------------------------------------
