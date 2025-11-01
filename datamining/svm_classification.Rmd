@@ -1,0 +1,309 @@
+---
+title: "SVM Classification"
+author: "Jasfer David Gabriel"
+output: html_document
+---
+
+------------------------------------------------------------------------
+
+#### Libraries
+
+```{r warning=FALSE, message=FALSE}
+#Loading necessary Libraries
+library(e1071)
+```
+
+------------------------------------------------------------------------
+
+#### Loading and Viewing Dataset
+
+```{r}
+data(iris)
+```
+
+-   The `data(iris)` loads the built-in iris dataset into your R environment.
+
+```{r}
+#Summary of dataset
+str(iris)
+```
+
+-   The `str(iris)` provides the summary of the iris dataset.
+-   The dataset has a total of 150 records and 5 variables.
+
+```{r}
+attach(iris)
+```
+
+-   The `attach(iris)` makes the columns of the `iris` dataset directly accessible by name, without using the `$` operator.
+
+```{r}
+#Accessing columns in iris dataset without using $ operator
+Species[!duplicated(Species)]
+```
+
+-   The `iris` flowers dataset has three species setosa, versicolor, virginca.
+-   `duplicated(species)` combined with `!` operator gives the unique values in `species` column.
+
+------------------------------------------------------------------------
+
+#### Classification Model : Support vector Machine(SVM)
+
+Fit `svm` model to predict the species of an iris flower.
+
+```{r}
+# Fit SVM model
+model <- svm(Species ~., data = iris) 
+```
+
+-   `svm()` function is used to train an SVM model.
+-   `Species ~ .`: A formula where `Species` is the target variable, and the `.` means all other variables in the dataset are used as predictors.
+-   `data = iris`: Specifies the iris dataset as the source of both the target and predictors.
+
+```{r}
+# Model summary
+summary(model)
+```
+
+-   `SVM-Type: C-classification` means the model is used for classification, not regression.
+
+-   `SVM-Kernel: radial` means the model Uses the Radial Basis Function (RBF) kernel, good for non-linear classification problems.
+
+-   `Cost: 1` is the default value that controls the penalty for misclassification.
+
+-   `Number of Support Vectors: 51`
+
+    -   The model found 51 support vectors out of 150 observations.
+    -   That means only these 51 points are actively defining the classification boundaries between the 3 species.
+    -   The remaining 99 points are correctly classified but are not close enough to the boundary to be considered support vectors.
+
+-   `Number of Classes: 3` means the model classifies iris species into three categories
+
+    -   setosa(8)
+
+    -   versicolor(22)
+
+    -   virginica(21)
+
+Model Testing
+
+```{r}
+# Model Testing
+prediction <- fitted(model)
+```
+
+-   This extracts the fitted values (predicted classes) from the trained SVM `model` and stores them in the `prediction` variable.
+
+> `fitted(model)` gives predictions on the training data, not on new or test data.
+
+Calculating Accuracy of the Model
+
+```{r}
+y <- Species # target variable
+table(prediction, y)
+```
+
+-   `table(prediction, y)` creates a confusion matrix comparing:`prediction`: the predicted class labels from your SVM model `(fitted(model))` and `y`: the actual class labels (Species)
+
+-   Accuracy:
+
+    -   Setosa: Perfect classification - all 50 correctly classified.
+    -   Versicolor:48 correctly predicted.2 mistakenly predicted as virginica.
+    -   Virginica:48 correctly predicted.2 mistakenly predicted as versicolor.
+
+```{r}
+#calculating Accuracy
+sum(prediction==y)/length(y) * 100
+```
+
+-   The model performs very well, with an overall accuracy of 97.33%
+
+Visualizing SVM model
+
+```{r}
+plot(cmdscale(dist(iris[,-5])),
+     col = as.integer(iris[,5]),
+     pch = c("o","+")[1:150 %in% model$index + 1],
+     xlab = "",
+     ylab = "",
+     main = "SVM Classification with Support Vectors")
+```
+
+-   Each point represents a flower sample from the iris dataset.
+-   Colors: Represent the 3 different iris species setosa(Black),versicolor(Red) and virginica(Green).
+-   Shape:
+    -   `"o"` = Regular data point
+    -   `"+"` = Support vector
+-   The SVM model learns the species boundaries very well, especially for setosa(Black).
+-   The overlap between versicolor(Red) and virginica(Green) indicates they are more similar and harder to separate.
+
+> This visual helps show which points the model relied on most (support vectors) and how well the classes are separated.
+
+------------------------------------------------------------------------
+
+##### Recommendations:
+
+-   Use this model for botanical classification tasks, especially when species show clear visual or measurable differences in physical features.
+
+-   For real-world deployment, test the model on new data (not just training set).
+
+-   To improve the model further:
+
+    -   Use cross-validation to avoid overfitting.
+
+##### Variable Suggestions for Extended Use:
+
+-   In a real flower classification system, consider adding:
+    -   Geographic location (region/country of origin)
+    -   Soil type, sunlight exposure or blooming season
+    -   Environmental data (from external sources)
+
+------------------------------------------------------------------------
+
+#### Regression Model : Support vector Machine(SVM)
+
+```{r}
+x <- seq(0.1, 5, by = 0.05)
+length(x)
+```
+
+-   Creates a sequence of 99 values from 0.1 to 5 with 0.05 increments.
+
+```{r}
+y <- log(x) + rnorm(x, sd = 0.2)
+```
+
+-   Computes the natural log of x, then adds random noise using rnorm() with a standard deviation of 0.2.
+
+-   This simulates real-world noisy observations.
+
+    -   Example output:
+        -   log(1) = 0,might become 0.15 due to noise.
+        -   log(2) \~ 0.69,could become 0.55 or 0.90 depending on randomness.
+
+Fit the Model
+
+```{r}
+mod <- svm(x,y)
+summary(mod)
+```
+
+-   Indicates a regression model was trained using vectors x and y.
+-   Out of 99 training points, 67 are support vectors.These are the most influential points used to define the regression function.
+
+```{r}
+pred <- predict(mod,x)
+```
+
+-   Predicts the response(y) using the model for each value of x.
+
+Visualize the model
+
+```{r}
+plot(x, y)
+points(x, log(x), col = 2)
+points(x, pred, col = 4)
+```
+
+-   This plot shows how the Support Vector Machine - Regression model performs compared to the actual logarithmic function and noisy data.
+-   Black circles Noisy data points (y) = log(x) + random noise
+-   Red circles True log(x) function (without noise)
+-   Blue circles predicted values (pred) using svm()
+
+Predictions (Blue):
+
+-   The blue curve smoothly follows the true red curve.
+
+-   It stays close to log(x) and filters out random noise.
+
+-   It doesn’t overfit to every noisy point, which is ideal in regression.
+
+True Function (Red):
+
+-   Serves as the benchmark for evaluating model performance.
+
+-   Both red and blue are close - showing the model learned the right pattern.
+
+Noise Handling:
+
+-   The black dots (noisy y) fluctuate around the red curve.
+
+-   Model effectively ignores most of this noise.
+
+------------------------------------------------------------------------
+
+##### Recommendations:
+
+Use SVM regression when:
+
+-   Data is non-linear
+
+-   Data contains noise
+
+------------------------------------------------------------------------
+
+#### Unsupervised Learning : Support vector Machine(SVM)
+
+```{r}
+X <- data.frame(a = rnorm(1000), b = rnorm(1000))
+attach(X)
+```
+
+-   Generates 1,000 random points for a and b, both from a standard normal distribution.
+
+Fit the Model
+
+```{r}
+m <- svm(X, gamma = 0.1)
+summary(m)
+```
+
+-   Uses one-classification SVM.
+-   X is used as input, and the model tries to find the boundary around the main data cluster.
+-   Out of 1000 points, 501 points are used as support vectors - they define the boundary of the learned region.
+-   Number of Classes: 1,the model learns from a single group of normal data.
+
+Model Testing
+
+```{r}
+newdata <- data.frame(a = c(0, 4), b = c(0, 4))
+predict(m, newdata)
+```
+
+-   Tests whether the points (0,0) and (4,4) are inliers or outliers based on the learned boundary.
+-   predict() returns TRUE (inlier) or FALSE (outlier).
+-   (0,0) is inlier and (4,4) is outlier.
+
+Visualize the Model
+
+```{r}
+plot(X, col = 1:1000 %in% m$index + 1, xlim = c(-5,5), ylim=c(-5,5))
+points(newdata, pch = "+", col = 2, cex = 5)
+```
+
+-   Black circles: Points considered support vectors or inliers by the SVM.
+
+-   Red circles: Data points that are outside the SVM decision boundary - potential outliers or non-support vectors.
+
+-   Large red "+" markers:Mark the test points provided ((0, 0) and (4, 4)).
+
+    -   (0, 0) lies near the center,classified as inlier.
+    -   (4, 4) is far from the data,likely classified as outlier.
+
+-   The SVM learned the core shape of the data.
+
+-   The SVM model is successfully filtering out distant or low-density points.
+
+-   It correctly flags unusual points (like (4, 4)) as potential anomalies.
+
+------------------------------------------------------------------------
+
+##### Recommendations:
+
+Use One-Class SVM for:
+
+-   Outlier Detection
+
+-   Novelty Detection
+
+------------------------------------------------------------------------
