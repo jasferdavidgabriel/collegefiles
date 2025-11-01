@@ -26,7 +26,7 @@ My submission and experimentation for the **eBay Machine Learning Competition**.
 Focus areas:
 - Model training and Inference
 
-📄 *Folder:* `/eBay-ML-Competition`
+📄 *Folder:* [eBay ML Competition](./eBay-ML-Competition)
 
 ---
 Feel free to explore, learn, and contribute!
