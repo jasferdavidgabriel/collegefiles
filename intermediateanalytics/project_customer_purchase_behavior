@@ -1,0 +1,265 @@
+# Load libraries
+library(tidyverse)
+library(caret)
+library(corrplot)
+library(car)
+library(ggcorrplot)
+library(pROC)
+library(MASS)
+library(glmnet)
+library(knitr)
+
+# Load tpROC# Load the dataset
+df <- read.csv("Dataset/online+shoppers+purchasing+intention+dataset/online_shoppers_intention.csv", stringsAsFactors = TRUE)
+
+# Data dimensions
+dim(df)
+
+# Check for NAs
+colSums(is.na(df))
+
+#Checking for duplicates
+sum(duplicated(df))
+
+#Removing duplicates
+df <- df[!duplicated(df),]
+
+# Summary of dataset
+summary(df)
+
+# Changing target variable name for interpretability
+names(df)[names(df) == "Revenue"] <- "Purchase"
+
+# Target variable distribution
+df$Purchase <- ifelse(df$Purchase == TRUE, "Purchase", "No Purchase")
+df$Purchase <- factor(df$Purchase, levels = c("No Purchase", "Purchase"))
+table(df$Purchase)
+prop.table(table(df$Purchase))
+
+# Distribution of Revenue
+ggplot(df, aes(x = Purchase)) +
+  geom_bar(fill = "darkblue") +
+  geom_text(stat = "count", aes(label = ..count..), vjust = 1.5, size = 4, color = "white") +
+  labs(title = "Distribution of Purchase",
+       x = "Purchase",
+       y = "Count") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Select only numeric variables
+numeric_vars <- df %>% select_if(is.numeric)
+
+# Compute correlation matrix
+cor_matrix <- cor(numeric_vars, use = "complete.obs")
+
+# Create correlation heatmap
+ggcorrplot(cor_matrix,
+           method = "square",
+           type = "lower",
+           lab = TRUE,
+           lab_size = 3,
+           tl.cex = 10,
+           tl.col = "black",
+           title = "Correlation Heatmap of Variables",
+           ggtheme = ggplot2::theme_minimal() +
+             theme(plot.title = element_text(hjust = 0.5)))
+
+# Convert logical to factor
+df$Weekend <- as.factor(df$Weekend)
+
+# Partition the data
+set.seed(123)
+trainIndex <- createDataPartition(df[, "Purchase"], p = 0.8, list = FALSE)
+trainData <- df[trainIndex, ]
+testData <- df[-trainIndex, ]
+
+# Logistic regression
+logit_model <- glm(Purchase ~ ., data = trainData, family = "binomial")
+options(scipen = 999)
+summary(logit_model)
+
+#check multicollinearity
+vif(logit_model)
+
+# Predict and evaluate 
+pred_probs_train <- predict(logit_model, newdata = trainData, type = "response")
+pred_labels_train <- ifelse(pred_probs_train > 0.5, "Purchase", "No Purchase")
+confusionMatrix(as.factor(pred_labels_train), trainData$Purchase)
+
+#ROC and AUC
+roc_train <- roc(trainData$Purchase,pred_probs_train)
+plot(roc_train, col = "red", main="Roc Curve for Train Data")
+auc_train <- auc(roc_train)
+legend("bottomright", legend = paste("AUC =", round(auc_train,4)))
+
+# Predict and evaluate 
+pred_probs_test <- predict(logit_model, newdata = testData, type = "response")
+pred_labels_test <- ifelse(pred_probs_test > 0.5, "Purchase", "No Purchase")
+confusionMatrix(as.factor(pred_labels_test), testData$Purchase)
+
+#ROC and AUC
+roc_test <- roc(testData$Purchase,pred_probs_test)
+plot(roc_test, col = "red", main="Roc Curve for Test Data")
+auc_test <- auc(roc_test)
+legend("bottomright", legend = paste("AUC =", round(auc_test,4)))
+
+#Stepwise Model
+# Fit a full logistic regression model
+full_model <- glm(Purchase ~ ., data = trainData, family = "binomial")
+
+# Perform stepwise selection (both directions by default)
+stepwise_model <- stepAIC(full_model, direction = "both", trace = FALSE)
+
+# View summary of the selected model
+summary(stepwise_model)
+
+# Predict and evaluate 
+pred_probs_train_sw <- predict(stepwise_model, newdata = trainData, type = "response")
+pred_labels_train_sw <- ifelse(pred_probs_train_sw > 0.5, "Purchase", "No Purchase")
+confusionMatrix(as.factor(pred_labels_train_sw), trainData$Purchase)
+
+#ROC and AUC
+roc_train_sw <- roc(trainData$Purchase,pred_probs_train_sw)
+plot(roc_train_sw, col = "red", main="Roc Curve for Train Data")
+auc_train_sw <- auc(roc_train_sw)
+legend("bottomright", legend = paste("AUC =", round(auc_train_sw,4)))
+
+# Predict and evaluate 
+pred_probs_test_sw <- predict(stepwise_model, newdata = testData, type = "response")
+pred_labels_test_sw <- ifelse(pred_probs_test_sw > 0.5, "Purchase", "No Purchase")
+confusionMatrix(as.factor(pred_labels_test_sw), testData$Purchase)
+
+#ROC and AUC
+roc_test_sw <- roc(testData$Purchase,pred_probs_test_sw)
+plot(roc_test_sw, col = "red", main="Roc Curve for Test Data")
+auc_test_sw <- auc(roc_test_sw)
+legend("bottomright", legend = paste("AUC =", round(auc_test_sw,4)))
+
+# Create model matrix (excluding response)
+x_train <- model.matrix(Purchase ~ ., data = trainData)[, -1]  # Remove intercept
+y_train <- trainData$Purchase
+
+x_test <- model.matrix(Purchase ~ ., data = testData)[, -1]
+y_test <- testData$Purchase
+
+#LASSO
+set.seed(125)
+cv_lasso <- cv.glmnet(x_train, y_train, family = "binomial", alpha = 1)
+
+# Get lambda values
+lambda_min_lasso <- cv_lasso$lambda.min
+lambda_1se_lasso <- cv_lasso$lambda.1se
+
+plot(cv_lasso)
+text(x = log(lambda_min_lasso), y = 0.65, 
+     labels = paste0("lambda.min=", round(lambda_min_lasso, 6)), 
+     pos = 3, col = "blue", cex = 0.7)
+text(x = log(lambda_1se_lasso), y = 0.80, 
+     labels = paste0("lambda.1se=", round(lambda_1se_lasso, 6)), 
+     pos = 3, col = "blue", cex = 0.7)
+
+lasso_model_lm <- glmnet(x_train, y_train, family = "binomial", alpha = 1, lambda = lambda_min_lasso)
+lasso_model_lm
+coef(lasso_model_lm)
+
+lasso_model_lse <- glmnet(x_train, y_train, family = "binomial", alpha = 1, lambda = lambda_1se_lasso)
+lasso_model_lse
+coef(lasso_model_lse)
+
+#lambda.min
+lasso_probs_lm_train <- predict(lasso_model_lm, newx = x_train, type = "response")
+lasso_preds_lm_train <- ifelse(lasso_probs_lm_train > 0.5, "Purchase", "No Purchase")
+confusionMatrix(as.factor(lasso_preds_lm_train), y_train)
+
+roc_lasso_lm_train <- roc(y_train, as.numeric(lasso_probs_lm_train))
+plot(roc_lasso_lm_train, col = "red", main="Roc Curve for Train Data")
+auc_train_lasso_lm <- auc(roc_lasso_lm_train)
+legend("bottomright", legend = paste("AUC =", round(auc_train_lasso_lm,4)))
+
+lasso_probs_lm_test <- predict(lasso_model_lm, newx = x_test, type = "response")
+lasso_preds_lm_test <- ifelse(lasso_probs_lm_test > 0.5, "Purchase", "No Purchase")
+confusionMatrix(as.factor(lasso_preds_lm_test), y_test)
+
+roc_lasso_lm_test <- roc(y_test, as.numeric(lasso_probs_lm_test))
+plot(roc_lasso_lm_test, col = "red", main="Roc Curve for Test Data")
+auc_test_lasso_lm <- auc(roc_lasso_lm_test)
+legend("bottomright", legend = paste("AUC =", round(auc_test_lasso_lm,4)))
+
+#lambda.1se
+lasso_probs_lse_train <- predict(lasso_model_lse, newx = x_train, type = "response")
+lasso_preds_lse_train <- ifelse(lasso_probs_lse_train > 0.5, "Purchase", "No Purchase")
+confusionMatrix(as.factor(lasso_preds_lse_train), y_train)
+
+roc_lasso_lse_train <- roc(y_train, as.numeric(lasso_probs_lse_train))
+plot(roc_lasso_lse_train, col = "red", main="Roc Curve for Train Data")
+auc_train_lasso_lse <- auc(roc_lasso_lse_train)
+legend("bottomright", legend = paste("AUC =", round(auc_train_lasso_lse,4)))
+
+lasso_probs_lse_test <- predict(lasso_model_lse, newx = x_test, type = "response")
+lasso_preds_lse_test <- ifelse(lasso_probs_lse_test > 0.5, "Purchase", "No Purchase")
+confusionMatrix(as.factor(lasso_preds_lse_test), y_test)
+
+roc_lasso_lse_test <- roc(y_test, as.numeric(lasso_probs_lse_test))
+plot(roc_lasso_lse_test, col = "red", main="Roc Curve for Test Data")
+auc_test_lasso_lse <- auc(roc_lasso_lse_test)
+legend("bottomright", legend = paste("AUC =", round(auc_test_lasso_lse,4)))
+
+accuracy_results <- data.frame(
+  Model = c("Logistic Regression (All Predictors)",
+            "Stepwise Regression",
+            "Lasso (lambda.min)",
+            "Lasso (lambda.1se)"),
+  
+    Accuracy  = c(0.8807, 0.8795, 0.8791, 0.8787)
+)
+
+kable(accuracy_results, caption = "Model Comparison (Accuracy)")
+
+auc_results <- data.frame(
+  Model = c("Logistic Regression (All Predictors)",
+            "Stepwise Regression",
+            "Lasso (lambda.min)",
+            "Lasso (lambda.1se)"),
+  
+  Train_AUC = c(0.8987, 0.8981, 0.8998, 0.9002),
+  Test_AUC  = c(0.8878, 0.8874, 0.8901, 0.8943)
+)
+
+kable(auc_results, caption = "Model Comparison (AUC)")
+
+
+#Plot all ROC curves
+plot(roc_test, col = "blue", lwd = 2, main = "ROC Curve Comparison(Test Data)", xlim = c(1, 0))
+lines(roc_test_sw, col = "green", lwd = 2)
+lines(roc_lasso_lm_test, col = "red", lwd = 2)
+lines(roc_lasso_lse_test, col = "purple", lwd = 2)
+
+# Add legend with AUCs
+legend("bottomright",
+       legend = c(
+         paste0("Logistic* (AUC = ", round(auc(roc_test), 4), ")"),
+         paste0("Stepwise (AUC = ", round(auc(roc_test_sw), 4), ")"),
+         paste0("LASSO min (AUC = ", round(auc(roc_lasso_lm_test), 4), ")"),
+         paste0("LASSO 1se (AUC = ", round(auc(roc_lasso_lse_test), 4), ")")
+       ),
+       col = c("blue", "green", "red", "purple"),
+       lwd = 2)
+
+#Plot all ROC curves
+plot(roc_train, col = "blue", lwd = 2, main = "ROC Curve Comparison(Train Data)")
+lines(roc_train_sw, col = "green", lwd = 2)
+lines(roc_lasso_lm_train, col = "red", lwd = 2)
+lines(roc_lasso_lse_train, col = "purple", lwd = 2)
+
+# Add legend with AUCs
+legend("bottomright",
+       legend = c(
+         paste0("Logistic* (AUC = ", round(auc(roc_train), 4), ")"),
+         paste0("Stepwise (AUC = ", round(auc(roc_train_sw), 4), ")"),
+         paste0("Lasso min (AUC = ", round(auc(roc_lasso_lm_train), 4), ")"),
+         paste0("Lasso 1se (AUC = ", round(auc(roc_lasso_lse_train), 4), ")")
+       ),
+       col = c("blue", "green", "red", "purple"),
+       lwd = 2)
+
+
