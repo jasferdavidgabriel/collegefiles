@@ -21,12 +21,4 @@ Includes:
 
 ---
 
-#### 🤖 2. eBay ML Competition
-My submission and experimentation for the **eBay Machine Learning Competition**.  
-Focus areas:
-- Model training and Inference
-
-📄 *Folder:* [eBay ML Competition](./ebaymlcompetition)
-
----
 Feel free to explore, learn, and contribute!
