@@ -9,7 +9,7 @@ This repo serves as both a learning archive and a showcase of my technical growt
 
 This repository contains documentation, code and results for various projects done during my college journey.
 
-### 📁 Current Projects
+### 📁 Projects
 
 #### 🧩 1. Data Mining
 A collection of experiments and case studies related to **data preprocessing**, **pattern discovery**, and **predictive modeling**.  
